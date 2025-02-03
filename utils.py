@@ -222,9 +222,12 @@ def render_chat():
             keywords = ["alternativas", "alternatives", "alternativa", "alternative"]
             if any(keyword in user_input.lower() for keyword in keywords):
                 try:
+                    token = None
+                    current_position = None
+
                     # Si menciona una posición específica
-                    if "posicion" in user_input.lower() or "posición" in user_input.lower() or "position" in user_input.lower():
-                        # Extraer el número de posición y el token correspondiente
+                    if any(word in user_input.lower() for word in ["posicion", "posición", "position"]):
+                        # Extraer el número de posición
                         completion = openai.ChatCompletion.create(
                             model="gpt-3.5-turbo",
                             messages=[
@@ -240,7 +243,15 @@ def render_chat():
                             try:
                                 position_idx = int(position_num) - 1
                                 if 0 <= position_idx < len(df):
-                                    token = df.iloc[position_idx]['token_symbol']
+                                    current_position = df.iloc[position_idx].to_dict()
+                                    token = current_position['token_symbol']
+
+                                    # Mostrar la posición actual
+                                    st.info(f"Posición actual:\n"
+                                           f"Token: {token}\n"
+                                           f"Protocolo: {current_position['common_name']}\n"
+                                           f"Balance: ${format_number(current_position['balance_usd'])}\n"
+                                           f"Wallet: {current_position['wallet']}")
                                 else:
                                     ai_response = f"No encontré la posición {position_num} en tu portafolio."
                                     raise ValueError("Posición fuera de rango")
@@ -261,26 +272,32 @@ def render_chat():
                         )
                         token = completion["choices"][0]["message"]["content"].strip()
 
-                    # Obtener alternativas de DeFi Llama
-                    llama_data = get_defi_llama_yields()
-                    if 'error' not in llama_data:
-                        alternatives = get_alternatives_for_token(token, llama_data)
+                    if token:
+                        # Obtener alternativas de DeFi Llama
+                        llama_data = get_defi_llama_yields()
+                        if 'error' not in llama_data:
+                            alternatives = get_alternatives_for_token(token, llama_data)
 
-                        if alternatives:
-                            # Formatear la respuesta
-                            response_parts = [f"📊 Aquí tienes las mejores alternativas para {token}:\n"]
-                            for alt in alternatives:
-                                response_parts.append(
-                                    f"• {alt['project']} en {alt['chain']}:\n"
-                                    f"  - Pool: {alt['symbol']}\n"
-                                    f"  - APY: {alt['apy']:.2f}%\n"
-                                    f"  - TVL: ${format_number(alt['tvlUsd'])}\n"
-                                )
-                            ai_response = "\n".join(response_parts)
+                            if alternatives:
+                                if current_position:
+                                    # Si tenemos la posición actual, usar generate_investment_analysis
+                                    analysis = generate_investment_analysis(current_position, alternatives, openai_api_key)
+                                    response_parts = [f"🔍 Análisis y alternativas para tu posición en {token}:\n\n{analysis}\n\n📊 Detalles de las alternativas:\n"]
+                                else:
+                                    response_parts = [f"📊 Mejores alternativas para {token}:\n"]
+
+                                for alt in alternatives:
+                                    response_parts.append(
+                                        f"• {alt['project']} en {alt['chain']}:\n"
+                                        f"  - Pool: {alt['symbol']}\n"
+                                        f"  - APY: {alt['apy']:.2f}%\n"
+                                        f"  - TVL: ${format_number(alt['tvlUsd'])}\n"
+                                    )
+                                ai_response = "\n".join(response_parts)
+                            else:
+                                ai_response = f"No encontré alternativas para {token}. ¿Podrías verificar el símbolo del token?"
                         else:
-                            ai_response = f"No encontré alternativas para {token}. ¿Podrías verificar el símbolo del token?"
-                    else:
-                        ai_response = "Lo siento, no pude consultar las alternativas en este momento. Por favor, inténtalo más tarde."
+                            ai_response = "Lo siento, no pude consultar las alternativas en este momento. Por favor, inténtalo más tarde."
 
                 except Exception as e:
                     if not 'ai_response' in locals():
