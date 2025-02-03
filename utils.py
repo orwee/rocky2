@@ -48,6 +48,7 @@ def format_number(value):
         return f"{value:.6f}".rstrip('0').rstrip('.')
 
 def get_user_defi_positions(address, api_key):
+    api_key=st.secrets["merlin_api_key"]
     """
     Llama a la API de Merlin (o la tuya) para obtener posiciones DeFi de un usuario.
     Retorna un objeto JSON con la información o un dict con 'error'.
