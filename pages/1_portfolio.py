@@ -18,8 +18,7 @@ def show_portfolio():
     st.sidebar.header("Ajustes para el Portafolio")
 
     wallet_address = st.sidebar.text_input("Wallet Address")
-    merlin_api_key = st.sidebar.text_input("Merlin API Key", type="password")
-
+    
     if "analyze" not in st.session_state:
         st.session_state["analyze"] = False
 
