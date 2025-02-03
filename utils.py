@@ -276,6 +276,7 @@ def render_chat():
                         # Obtener alternativas de DeFi Llama
                         llama_data = get_defi_llama_yields()
                         if 'error' not in llama_data:
+                            # Filtrar alternativas por el token de la posición seleccionada
                             alternatives = get_alternatives_for_token(token, llama_data)
 
                             if alternatives:
@@ -317,7 +318,7 @@ def render_chat():
 
                 try:
                     completion = openai.ChatCompletion.create(
-                        model="gpt-4o-mini",
+                        model="gpt-3.5-turbo",
                         messages=messages_for_openai
                     )
                     ai_response = completion["choices"][0]["message"]["content"]
