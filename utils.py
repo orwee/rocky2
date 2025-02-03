@@ -203,7 +203,6 @@ def init_chat_history():
         st.session_state["messages"] = [
             {"role": "assistant", "content": "¡Hola! Soy tu asistente DeFi. Pregúntame sobre tu portafolio o alternativas de inversión."}
         ]
-
 def render_chat():
     """Muestra el historial de chat y maneja las interacciones."""
     for msg in st.session_state["messages"]:
@@ -218,28 +217,64 @@ def render_chat():
         if not openai_api_key:
             ai_response = "Por favor, agrega tu OpenAI API key para continuar."
         else:
-            openai.api_key = openai_api_key
+            # Verificar si el usuario está pidiendo alternativas
+            if "alternativas" in user_input.lower() or "alternatives" in user_input.lower():
+                # Obtener el token del mensaje del usuario
+                try:
+                    # Llamar a GPT para extraer el token del mensaje
+                    completion = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "Extrae solo el símbolo del token mencionado en el mensaje. Responde únicamente con el símbolo."},
+                            {"role": "user", "content": user_input}
+                        ]
+                    )
+                    token = completion["choices"][0]["message"]["content"].strip()
 
-            # Construir mensajes para OpenAI
-            messages_for_openai = []
-            messages_for_openai.append({
-                "role": "system",
-                "content": (
-                    "Actúa como un asesor experto en DeFi. "
-                    "A continuación tienes un resumen del portafolio del usuario. Úsalo para responder de forma contextual.\n\n"
-                    f"{st.session_state.get('portfolio_summary', 'No hay resumen de portafolio disponible.')}"
-                )
-            })
-            messages_for_openai.extend(st.session_state["messages"])
+                    # Obtener alternativas de DeFi Llama
+                    llama_data = get_defi_llama_yields()
+                    if 'error' not in llama_data:
+                        alternatives = get_alternatives_for_token(token, llama_data)
 
-            try:
-                completion = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages_for_openai
-                )
-                ai_response = completion["choices"][0]["message"]["content"]
-            except Exception as e:
-                ai_response = f"Error al generar respuesta: {e}"
+                        if alternatives:
+                            # Formatear la respuesta
+                            response_parts = [f"📊 Aquí tienes las mejores alternativas para {token}:\n"]
+                            for alt in alternatives:
+                                response_parts.append(
+                                    f"• {alt['project']} en {alt['chain']}:\n"
+                                    f"  - Pool: {alt['symbol']}\n"
+                                    f"  - APY: {alt['apy']:.2f}%\n"
+                                    f"  - TVL: ${format_number(alt['tvlUsd'])}\n"
+                                )
+                            ai_response = "\n".join(response_parts)
+                        else:
+                            ai_response = f"No encontré alternativas para {token}. ¿Podrías verificar el símbolo del token?"
+                    else:
+                        ai_response = "Lo siento, no pude consultar las alternativas en este momento. Por favor, inténtalo más tarde."
+
+                except Exception as e:
+                    ai_response = f"Lo siento, hubo un error al procesar tu solicitud: {str(e)}"
+            else:
+                # Comportamiento normal del chat
+                messages_for_openai = []
+                messages_for_openai.append({
+                    "role": "system",
+                    "content": (
+                        "Actúa como un asesor experto en DeFi. "
+                        "A continuación tienes un resumen del portafolio del usuario. Úsalo para responder de forma contextual.\n\n"
+                        f"{st.session_state.get('portfolio_summary', 'No hay resumen de portafolio disponible.')}"
+                    )
+                })
+                messages_for_openai.extend(st.session_state["messages"])
+
+                try:
+                    completion = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=messages_for_openai
+                    )
+                    ai_response = completion["choices"][0]["message"]["content"]
+                except Exception as e:
+                    ai_response = f"Error al generar respuesta: {e}"
 
         st.session_state["messages"].append({"role": "assistant", "content": ai_response})
         st.chat_message("assistant").write(ai_response)
