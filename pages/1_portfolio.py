@@ -30,24 +30,30 @@ def show_portfolio():
         st.session_state["analyze"] = True
 
     if st.session_state["analyze"]:
-        # Guardar las direcciones que estén llenas en una lista
-        wallet_addresses = [addr for addr in [wallet_address_1, wallet_address_2, wallet_address_3] if addr]
+        wallet_dict = {
+            f"Wallet #{i+1}": addr
+            for i, addr in enumerate([wallet_address_1, wallet_address_2, wallet_address_3])
+            if addr
+        }
 
-        if len(wallet_addresses) == 0:
+        if not wallet_dict:
             st.warning("Por favor, ingresa al menos una dirección de wallet.")
             return
 
         # Para cada dirección, llamar la API y procesar
         combined_df = pd.DataFrame()
         errors = []
-        for addr in wallet_addresses:
+
+        for wallet_label, addr in wallet_dict.items():
             result = get_user_defi_positions(addr, st.secrets["merlin_api_key"])
             if 'error' not in result:
                 df_wallet = process_defi_data(result)
+                # Añadir la columna de wallet
+                df_wallet['wallet'] = wallet_label
                 # Combinar con DataFrame maestro
                 combined_df = pd.concat([combined_df, df_wallet], ignore_index=True)
             else:
-                errors.append(f"Error con la wallet {addr}: {result['error']}")
+                errors.append(f"Error con la {wallet_label} ({addr}): {result['error']}")
 
         # Mostrar errores si los hubiera
         if errors:
@@ -62,6 +68,11 @@ def show_portfolio():
         st.subheader("Tus Posiciones DeFi Combinadas")
         df_display = combined_df.copy()
         df_display["balance_usd"] = df_display["balance_usd"].apply(lambda x: f"${format_number(x)}")
+
+        # Reordenar las columnas para que 'wallet' aparezca al principio
+        columns_order = ['wallet'] + [col for col in df_display.columns if col != 'wallet']
+        df_display = df_display[columns_order]
+
         st.dataframe(df_display, use_container_width=True)
 
         # Graficar si hay balances
