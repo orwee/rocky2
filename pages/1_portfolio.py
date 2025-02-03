@@ -75,8 +75,6 @@ def show_portfolio():
 
         #guardar como appstate
         st.session_state['combined_df'] = combined_df
-        portfolio_summary = generate_portfolio_summary(combined_df)
-        st.session_state['portfolio_summary'] = portfolio_summary
 
         st.dataframe(df_display, use_container_width=True)
 
@@ -118,6 +116,9 @@ def show_portfolio():
 
             # Generar resumen de portafolio combinado
             st.session_state["portfolio_summary"] = summarize_portfolio(combined_df)
+
+            #otra appstate
+            st.session_state['portfolio_summary'] = portfolio_summary
 
             if 'error' not in llama_data:
                 for idx, row in combined_df.iterrows():
