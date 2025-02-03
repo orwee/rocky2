@@ -91,12 +91,12 @@ def show_portfolio():
                 st.plotly_chart(fig, use_container_width=True)
 
             with c2:
-                df_grouped_mod = combined_df.groupby('module')['balance_usd'].sum().reset_index()
+                df_grouped_mod = combined_df.groupby('wallet')['balance_usd'].sum().reset_index()
                 fig2 = px.pie(
                     df_grouped_mod,
                     values='balance_usd',
-                    names='module',
-                    title='Por Módulo'
+                    names='wallet',
+                    title='Por Wallet'
                 )
                 st.plotly_chart(fig2, use_container_width=True)
 
