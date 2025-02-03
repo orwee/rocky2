@@ -203,6 +203,7 @@ def init_chat_history():
         st.session_state["messages"] = [
             {"role": "assistant", "content": "¡Hola! Soy tu asistente DeFi. Pregúntame sobre tu portafolio o alternativas de inversión."}
         ]
+
 def render_chat():
     """Muestra el historial de chat y maneja las interacciones."""
     for msg in st.session_state["messages"]:
@@ -218,18 +219,47 @@ def render_chat():
             ai_response = "Por favor, agrega tu OpenAI API key para continuar."
         else:
             # Verificar si el usuario está pidiendo alternativas
-            if "alternativas" in user_input.lower() or "alternatives" in user_input.lower():
-                # Obtener el token del mensaje del usuario
+            keywords = ["alternativas", "alternatives", "alternativa", "alternative"]
+            if any(keyword in user_input.lower() for keyword in keywords):
                 try:
-                    # Llamar a GPT para extraer el token del mensaje
-                    completion = openai.ChatCompletion.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": "Extrae solo el símbolo del token mencionado en el mensaje. Responde únicamente con el símbolo."},
-                            {"role": "user", "content": user_input}
-                        ]
-                    )
-                    token = completion["choices"][0]["message"]["content"].strip()
+                    # Si menciona una posición específica
+                    if "posicion" in user_input.lower() or "posición" in user_input.lower() or "position" in user_input.lower():
+                        # Extraer el número de posición y el token correspondiente
+                        completion = openai.ChatCompletion.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "Extrae el número de la posición mencionada en el mensaje. Responde solo con el número."},
+                                {"role": "user", "content": user_input}
+                            ]
+                        )
+                        position_num = completion["choices"][0]["message"]["content"].strip()
+
+                        # Obtener el DataFrame del estado de la sesión
+                        if "combined_df" in st.session_state:
+                            df = st.session_state["combined_df"]
+                            try:
+                                position_idx = int(position_num) - 1
+                                if 0 <= position_idx < len(df):
+                                    token = df.iloc[position_idx]['token_symbol']
+                                else:
+                                    ai_response = f"No encontré la posición {position_num} en tu portafolio."
+                                    raise ValueError("Posición fuera de rango")
+                            except:
+                                ai_response = "Por favor, especifica un número de posición válido."
+                                raise ValueError("Número de posición inválido")
+                        else:
+                            ai_response = "No encuentro tu portafolio. ¿Has analizado tus wallets primero?"
+                            raise ValueError("No hay portafolio")
+                    else:
+                        # Si solo menciona un token
+                        completion = openai.ChatCompletion.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "Extrae solo el símbolo del token mencionado en el mensaje. Responde únicamente con el símbolo."},
+                                {"role": "user", "content": user_input}
+                            ]
+                        )
+                        token = completion["choices"][0]["message"]["content"].strip()
 
                     # Obtener alternativas de DeFi Llama
                     llama_data = get_defi_llama_yields()
@@ -253,7 +283,8 @@ def render_chat():
                         ai_response = "Lo siento, no pude consultar las alternativas en este momento. Por favor, inténtalo más tarde."
 
                 except Exception as e:
-                    ai_response = f"Lo siento, hubo un error al procesar tu solicitud: {str(e)}"
+                    if not 'ai_response' in locals():
+                        ai_response = f"Lo siento, hubo un error al procesar tu solicitud: {str(e)}"
             else:
                 # Comportamiento normal del chat
                 messages_for_openai = []
@@ -269,7 +300,7 @@ def render_chat():
 
                 try:
                     completion = openai.ChatCompletion.create(
-                        model="gpt-3.5-turbo",
+                        model="gpt-4o-mini",
                         messages=messages_for_openai
                     )
                     ai_response = completion["choices"][0]["message"]["content"]
