@@ -1,5 +1,6 @@
 import pandas as pd
 import plotly.express as px
+import streamlit as st
 from utils import (
     get_user_defi_positions,
     process_defi_data,
