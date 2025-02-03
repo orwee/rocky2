@@ -25,7 +25,7 @@ def show_portfolio():
     if st.sidebar.button("Analizar Portafolio"):
         st.session_state["analyze"] = True
 
-    if st.session_state["analyze"] and wallet_address and merlin_api_key:
+    if st.session_state["analyze"] and wallet_address:
         # Obtener datos del usuario
         result = get_user_defi_positions(wallet_address, st.secrets["merlin_api_key"])
         if 'error' not in result:
