@@ -12,7 +12,6 @@ from utils import (
 )
 
 def show_portfolio():
-    st.set_page_config(page_title="Mi Agente DeFi - Portafolio", layout="wide")
     st.title("Resumen de Portafolio DeFi")
 
     st.sidebar.header("Ajustes para el Portafolio")
