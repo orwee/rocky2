@@ -73,6 +73,11 @@ def show_portfolio():
         columns_order = ['wallet'] + [col for col in df_display.columns if col != 'wallet']
         df_display = df_display[columns_order]
 
+        #guardar como appstate
+        st.session_state['combined_df'] = combined_df
+        portfolio_summary = generate_portfolio_summary(combined_df)
+        st.session_state['portfolio_summary'] = portfolio_summary
+
         st.dataframe(df_display, use_container_width=True)
 
         # Graficar si hay balances
