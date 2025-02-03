@@ -1,0 +1,9 @@
+streamlit
+requests
+pandas
+numpy
+plotly
+openai==0.28.0
+langchain
+sqlalchemy
+duckduckgo-search
