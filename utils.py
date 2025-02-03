@@ -205,6 +205,9 @@ def init_chat_history():
         ]
 
 def render_chat():
+    if st.session_state['combined_df'] is None:
+        st.warning("Por favor, primero analiza tu portafolio en la página de Portfolio.")
+        return
     """Muestra el historial de chat y maneja las interacciones."""
     for msg in st.session_state["messages"]:
         st.chat_message(msg["role"]).write(msg["content"])
