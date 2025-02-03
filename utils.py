@@ -181,7 +181,7 @@ def generate_investment_analysis(current_position, alternatives, api_key):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",  # Ajusta según tu versión
+            model="gpt-4o-mini",  # Ajusta según tu versión
             messages=[
                 {"role": "system", "content": "Eres un asesor DeFi experto y muy conciso."},
                 {"role": "user", "content": prompt}
