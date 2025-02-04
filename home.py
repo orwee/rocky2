@@ -1,21 +1,13 @@
+# Chat.py
 import streamlit as st
-import pandas as pd
-
+from utils import init_chat_history, render_chat
 
 def main():
-    st.set_page_config(page_title="Mi Agente DeFi - Chat y Alternativas", layout="wide")
-    st.title("Mi Agente DeFi - Chat y Alternativas")
+    st.set_page_config(page_title="Mi Agente DeFi - Chat", layout="wide")
+    st.title("Chat DeFi")
 
-
-    # Sección de Chat DeFi
-    st.header("Chat DeFi")
     init_chat_history()
     render_chat()
-
-    st.markdown("---")
-
-    # Sección para explorar alternativas
-    render_alternatives()
 
 if __name__ == "__main__":
     main()
