@@ -100,7 +100,7 @@ def render_opportunities_chat():
                     filtered_opps.append(opp)
             # Ordenar por APY descendente
             filtered_opps.sort(key=lambda x: x.get("apy", 0), reverse=True)
-
+            filtered_opps=filtered_opps[:3]
             if filtered_opps:
                 response_text = "He encontrado las siguientes oportunidades:\n\n"
                 for opp in filtered_opps:
