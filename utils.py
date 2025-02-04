@@ -267,7 +267,7 @@ def render_chat():
                     else:
                         # Si solo menciona un token
                         completion = openai.ChatCompletion.create(
-                            model="gpt-3.5-turbo",
+                            model="gpt-4o-mini",
                             messages=[
                                 {"role": "system", "content": "Extrae solo el símbolo del token mencionado en el mensaje. Responde únicamente con el símbolo."},
                                 {"role": "user", "content": user_input}
