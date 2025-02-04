@@ -201,6 +201,10 @@ def init_chat_history():
         ]
 
 def render_chat():
+    if "combined_df" not in st.session_state or st.session_state["combined_df"] is None:
+        st.warning("Por favor, primero analiza tu portafolio en la página de Portfolio.")
+        return
+        
     if st.session_state['combined_df'] is None:
         st.warning("Por favor, primero analiza tu portafolio en la página de Portfolio.")
         return
