@@ -16,6 +16,16 @@ def show_portfolio():
     st.title("Resumen de Portafolio DeFi")
 
     st.sidebar.header("Ajustes para el Portafolio")
+    if st.session_state["combined_df"] is not None:
+        st.info("Se encontró información de portafolio. Si deseas obtener datos actualizados, presiona el botón 'Actualizar Datos'.")
+        if st.sidebar.button("Actualizar Datos"):
+            st.session_state["analyze"] = True
+        else:
+            # Si no se actualiza, se muestra la información almacenada
+            df_display = st.session_state["combined_df"].copy()
+            df_display["balance_usd"] = df_display["balance_usd"].apply(lambda x: f"${format_number(x)}")
+            st.dataframe(df_display, use_container_width=True)
+            return
 
     # Permitir hasta 3 direcciones de wallet
     wallet_address_1 = st.sidebar.text_input("Wallet Address 1")
@@ -142,6 +152,7 @@ def show_portfolio():
             st.warning("No se encontraron posiciones > \$5 en las direcciones ingresadas.")
 
 def main():
+    
     show_portfolio()
 
 if __name__ == "__main__":
