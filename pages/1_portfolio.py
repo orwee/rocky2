@@ -11,13 +11,6 @@ from utils import (
     generate_investment_analysis,
     get_openai_api_key
 )
-
-if 'combined_df' not in st.session_state:
-   st.session_state['combined_df'] = None
-if 'portfolio_summary' not in st.session_state:
-   st.session_state['portfolio_summary'] = None
-if 'messages' not in st.session_state:
-   st.session_state['messages'] = []
     
 def show_portfolio():
     st.title("Resumen de Portafolio DeFi")
