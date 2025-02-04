@@ -118,7 +118,7 @@ def show_portfolio():
             st.session_state["portfolio_summary"] = summarize_portfolio(combined_df)
 
             #otra appstate
-            st.session_state['portfolio_summary'] = portfolio_summary
+            #st.session_state['portfolio_summary'] = portfolio_summary
 
             if 'error' not in llama_data:
                 for idx, row in combined_df.iterrows():
