@@ -208,125 +208,171 @@ def render_chat():
     if st.session_state['combined_df'] is None:
         st.warning("Por favor, primero analiza tu portafolio en la página de Portfolio.")
         return
-    """Muestra el historial de chat y maneja las interacciones."""
+
+    # Mostrar historial previo del chat
     for msg in st.session_state["messages"]:
         st.chat_message(msg["role"]).write(msg["content"])
 
     user_input = st.chat_input("Escribe tu pregunta o solicitud aquí...")
-    if user_input:
-        st.session_state["messages"].append({"role": "user", "content": user_input})
-        st.chat_message("user").write(user_input)
+    if not user_input:
+        return
 
-        openai_api_key = get_openai_api_key()
-        if not openai_api_key:
-            ai_response = "Por favor, agrega tu OpenAI API key para continuar."
-        else:
-            # Verificar si el usuario está pidiendo alternativas
-            keywords = ["alternativas", "alternatives", "alternativa", "alternative"]
-            if any(keyword in user_input.lower() for keyword in keywords):
-                try:
-                    token = None
-                    current_position = None
+    st.session_state["messages"].append({"role": "user", "content": user_input})
+    st.chat_message("user").write(user_input)
 
-                    # Si menciona una posición específica
-                    if any(word in user_input.lower() for word in ["posicion", "posición", "position"]):
-                        # Extraer el número de posición
-                        completion = openai.ChatCompletion.create(
-                            model="gpt-3.5-turbo",
-                            messages=[
-                                {"role": "system", "content": "Extrae el número de la posición mencionada en el mensaje. Responde solo con el número."},
-                                {"role": "user", "content": user_input}
-                            ]
-                        )
-                        position_num = completion["choices"][0]["message"]["content"].strip()
+    openai_api_key = get_openai_api_key()
+    if not openai_api_key:
+        ai_response = "Por favor, agrega tu OpenAI API key para continuar."
+    else:
+        # Si el mensaje contiene palabras clave relacionadas a alternativas
+        keywords = ["alternativas", "alternatives", "alternativa", "alternative"]
+        if any(keyword in user_input.lower() for keyword in keywords):
+            try:
+                token = None
+                current_position = None
+                lower_input = user_input.lower()
 
-                        # Obtener el DataFrame del estado de la sesión
-                        if "combined_df" in st.session_state:
-                            df = st.session_state["combined_df"]
-                            try:
-                                position_idx = int(position_num) - 1
-                                if 0 <= position_idx < len(df):
-                                    current_position = df.iloc[position_idx].to_dict()
-                                    token = current_position['token_symbol']
-
-                                    # Mostrar la posición actual
-                                    st.info(f"Posición actual:\n"
-                                           f"Token: {token}\n"
-                                           f"Protocolo: {current_position['common_name']}\n"
-                                           f"Balance: ${format_number(current_position['balance_usd'])}\n"
-                                           f"Wallet: {current_position['wallet']}")
-                                else:
-                                    ai_response = f"No encontré la posición {position_num} en tu portafolio."
-                                    raise ValueError("Posición fuera de rango")
-                            except:
-                                ai_response = "Por favor, especifica un número de posición válido."
-                                raise ValueError("Número de posición inválido")
-                        else:
-                            ai_response = "No encuentro tu portafolio. ¿Has analizado tus wallets primero?"
-                            raise ValueError("No hay portafolio")
-                    else:
-                        # Si solo menciona un token
-                        completion = openai.ChatCompletion.create(
-                            model="gpt-4o-mini",
-                            messages=[
-                                {"role": "system", "content": "Extrae solo el símbolo del token mencionado en el mensaje. Responde únicamente con el símbolo."},
-                                {"role": "user", "content": user_input}
-                            ]
-                        )
-                        token = completion["choices"][0]["message"]["content"].strip()
-
-                    if token:
-                        # Obtener alternativas de DeFi Llama
-                        llama_data = get_defi_llama_yields()
-                        if 'error' not in llama_data:
-                            # Filtrar alternativas por el token de la posición seleccionada
-                            alternatives = get_alternatives_for_token(token, llama_data)
-
-                            if alternatives:
-                                if current_position:
-                                    # Si tenemos la posición actual, usar generate_investment_analysis
-                                    analysis = generate_investment_analysis(current_position, alternatives, openai_api_key)
-                                    response_parts = [f"🔍 Análisis y alternativas para tu posición en {token}:\n\n{analysis}\n\n📊 Detalles de las alternativas:\n"]
-                                else:
-                                    response_parts = [f"📊 Mejores alternativas para {token}:\n"]
-
-                                for alt in alternatives:
-                                    response_parts.append(
-                                        f"• {alt['project']} en {alt['chain']}:\n"
-                                        f"  - Pool: {alt['symbol']}\n"
-                                        f"  - APY: {alt['apy']:.2f}%\n"
-                                        f"  - TVL: ${format_number(alt['tvlUsd'])}\n"
-                                    )
-                                ai_response = "\n".join(response_parts)
-                            else:
-                                ai_response = f"No encontré alternativas para {token}. ¿Podrías verificar el símbolo del token?"
-                        else:
-                            ai_response = "Lo siento, no pude consultar las alternativas en este momento. Por favor, inténtalo más tarde."
-
-                except Exception as e:
-                    if not 'ai_response' in locals():
-                        ai_response = f"Lo siento, hubo un error al procesar tu solicitud: {str(e)}"
-            else:
-                # Comportamiento normal del chat
-                messages_for_openai = []
-                messages_for_openai.append({
-                    "role": "system",
-                    "content": (
-                        "Actúa como un asesor experto en DeFi. "
-                        "A continuación tienes un resumen del portafolio del usuario. Úsalo para responder de forma contextual.\n\n"
-                        f"{st.session_state.get('portfolio_summary', 'No hay resumen de portafolio disponible.')}"
-                    )
-                })
-                messages_for_openai.extend(st.session_state["messages"])
-
-                try:
+                # Si se menciona una posición específica, se extrae el número para identificar el token correspondiente
+                if any(word in lower_input for word in ["posicion", "posición", "position"]):
                     completion = openai.ChatCompletion.create(
                         model="gpt-3.5-turbo",
-                        messages=messages_for_openai
+                        messages=[
+                            {"role": "system", "content": "Extrae el número de la posición mencionada en el mensaje. Responde solo con el número."},
+                            {"role": "user", "content": user_input}
+                        ]
                     )
-                    ai_response = completion["choices"][0]["message"]["content"]
-                except Exception as e:
-                    ai_response = f"Error al generar respuesta: {e}"
+                    position_num = completion["choices"][0]["message"]["content"].strip()
+                    if "combined_df" in st.session_state:
+                        df = st.session_state["combined_df"]
+                        try:
+                            pos_idx = int(position_num) - 1
+                            if 0 <= pos_idx < len(df):
+                                current_position = df.iloc[pos_idx].to_dict()
+                                token = current_position['token_symbol']
+                            else:
+                                ai_response = f"No encontré la posición {position_num} en tu portafolio."
+                                raise ValueError("Posición fuera de rango")
+                        except:
+                            ai_response = "Por favor, especifica un número de posición válido."
+                            raise ValueError("Número de posición inválido")
+                    else:
+                        ai_response = "No encuentro tu portafolio. ¿Has analizado tus wallets primero?"
+                        raise ValueError("No hay portafolio")
+                else:
+                    # Extraer el símbolo del token usando un prompt (para asegurarnos de obtener solo el símbolo)
+                    completion = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "Extrae solo el símbolo del token mencionado en el mensaje. Responde únicamente con el símbolo."},
+                            {"role": "user", "content": user_input}
+                        ]
+                    )
+                    token = completion["choices"][0]["message"]["content"].strip()
+
+                if token:
+                    # Consulta a DeFi Llama para obtener las alternativas disponibles
+                    llama_data = get_defi_llama_yields()
+                    if 'error' not in llama_data:
+                        alternatives = get_alternatives_for_token(token, llama_data)
+
+                        # Nuevo bloque: detectar y extraer filtros si el usuario incluye "filtrar" o "filter"
+                        import re
+                        filters = {}
+                        if "filtrar" in lower_input or "filter" in lower_input:
+                            # Filtrar por blockchain (p.ej., "blockchain: ethereum")
+                            m_blockchain = re.search(r"blockchain\s*:\s*([a-zA-Z0-9]+)", lower_input)
+                            if m_blockchain:
+                                filters["chain"] = m_blockchain.group(1).lower()
+                            # Filtrar por token o symbol (aunque por lo general ya se conoce el token)
+                            m_token = re.search(r"(token|symbol)\s*:\s*([a-zA-Z0-9]+)", lower_input)
+                            if m_token:
+                                filters["symbol"] = m_token.group(2).upper()
+                            # Filtrar por APY (p.ej., "apy: >10")
+                            m_apy = re.search(r"apy\s*([><]=?|=)\s*(\d+(\.\d+)?)", lower_input)
+                            if m_apy:
+                                filters["apy"] = (m_apy.group(1), float(m_apy.group(2)))
+                            # Filtrar por TVL (p.ej., "tvl: <1000000")
+                            m_tvl = re.search(r"tvl\s*([><]=?|=)\s*(\d+(\.\d+)?)", lower_input)
+                            if m_tvl:
+                                filters["tvlUsd"] = (m_tvl.group(1), float(m_tvl.group(2)))
+
+                        # Si se hallaron filtros, se aplican sobre las alternativas
+                        if filters and alternatives:
+                            filtered_alternatives = []
+                            for alt in alternatives:
+                                include = True
+                                if "chain" in filters and filters["chain"] not in alt["chain"].lower():
+                                    include = False
+                                if "symbol" in filters and filters["symbol"] not in alt["symbol"].upper():
+                                    include = False
+                                if "apy" in filters:
+                                    op, threshold = filters["apy"]
+                                    if op in [">", ">="] and not (alt["apy"] >= threshold):
+                                        include = False
+                                    elif op in ["<", "<="] and not (alt["apy"] <= threshold):
+                                        include = False
+                                    elif op == "=" and not (alt["apy"] == threshold):
+                                        include = False
+                                if "tvlUsd" in filters:
+                                    op, threshold = filters["tvlUsd"]
+                                    if op in [">", ">="] and not (alt["tvlUsd"] >= threshold):
+                                        include = False
+                                    elif op in ["<", "<="] and not (alt["tvlUsd"] <= threshold):
+                                        include = False
+                                    elif op == "=" and not (alt["tvlUsd"] == threshold):
+                                        include = False
+                                if include:
+                                    filtered_alternatives.append(alt)
+                            # Ordenamos por APY en forma descendente
+                            filtered_alternatives.sort(key=lambda x: x["apy"], reverse=True)
+                            alternatives = filtered_alternatives
+
+                        # Si se encontraron alternativas (posiblemente filtradas)
+                        if alternatives:
+                            if current_position:
+                                analysis = generate_investment_analysis(current_position, alternatives, openai_api_key)
+                                response_parts = [f"🔍 Análisis y alternativas para tu posición en {token}:\n\n{analysis}\n\n📊 Detalles de las alternativas:\n"]
+                            else:
+                                response_parts = [f"📊 Mejores alternativas para {token}:\n"]
+
+                            for alt in alternatives:
+                                response_parts.append(
+                                    f"• {alt['project']} en {alt['chain']}:\n"
+                                    f"  - Pool: {alt['symbol']}\n"
+                                    f"  - APY: {alt['apy']:.2f}%\n"
+                                    f"  - TVL: ${format_number(alt['tvlUsd'])}\n"
+                                )
+                            ai_response = "\n".join(response_parts)
+                        else:
+                            ai_response = f"No encontré alternativas para {token} con esos filtros. ¿Podrías verificar los criterios?"
+                    else:
+                        ai_response = "Lo siento, no pude consultar las alternativas en este momento. Por favor, inténtalo más tarde."
+                else:
+                    ai_response = "No pude identificar un token válido en tu solicitud."
+            except Exception as e:
+                if 'ai_response' not in locals():
+                    ai_response = f"Lo siento, hubo un error al procesar tu solicitud: {str(e)}"
+        else:
+            # Comportamiento general del chat sin filtrado de alternativas
+            messages_for_openai = []
+            messages_for_openai.append({
+                "role": "system",
+                "content": (
+                    "Actúa como un asesor experto en DeFi. "
+                    "A continuación tienes un resumen del portafolio del usuario. Úsalo para responder de forma contextual.\n\n"
+                    f"{st.session_state.get('portfolio_summary', 'No hay resumen de portafolio disponible.')}"
+                )
+            })
+            messages_for_openai.extend(st.session_state["messages"])
+
+            try:
+                completion = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages_for_openai
+                )
+                ai_response = completion["choices"][0]["message"]["content"]
+            except Exception as e:
+                ai_response = f"Error al generar respuesta: {e}"
 
         st.session_state["messages"].append({"role": "assistant", "content": ai_response})
         st.chat_message("assistant").write(ai_response)
