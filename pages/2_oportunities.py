@@ -23,6 +23,7 @@ def render_opportunities_chat():
                 "¡Hola! Soy tu asesor DeFi. Pregunta, por ejemplo:\n"
                 "• 'muestra alternativas para BTC'\n"
                 "• 'filtra por la chain: arbitrum'\n"
+                "• 'dime las mejores alternativas del token BTC en la chain de arbitrum'\n"
                 "• 'muestra el grafico del pool: 747c1d2a-c668-4682-b9f9-296708a3dd90'\n"
                 "Recuerda que siempre se muestran máximo 3 oportunidades."
             )}
@@ -56,31 +57,41 @@ def render_opportunities_chat():
                     pool_id_requested = st.session_state["last_alternatives"][0].get("pool")
                     show_graph = True
 
-            # Si el mensaje contiene filtro por chain (e.g. "chain: arbitrum")
+            # Si el mensaje contiene filtro por chain (por ejemplo, "chain: arbitrum")
             chain_match = re.search(r"(?:chain|blockchain)\s*(?:[:=]\s*|\s+de\s+)(\w+)", user_input.lower())
             if chain_match:
                 chain_filter = chain_match.group(1).lower()
+                # EXTRA: detectar si se menciona también el token (ej. "token BTC")
+                token_match = re.search(r"token\s+(\w+)", user_input.lower())
+                token_filter = token_match.group(1).upper() if token_match else None
+
                 llama_data = get_defi_llama_yields()
                 if "error" in llama_data:
                     ai_response = "Error al obtener datos de DeFi Llama."
                 else:
                     alternatives = []
                     for pool in llama_data.get("data", []):
+                        # Se filtra siempre por chain
                         if chain_filter in pool.get("chain", "").lower():
-                            alternatives.append({
-                                "symbol": pool.get("symbol", ""),
-                                "project": pool.get("project", ""),
-                                "chain": pool.get("chain", ""),
-                                "apy": pool.get("apy", 0),
-                                "tvlUsd": pool.get("tvlUsd", 0),
-                                "pool": pool.get("pool", "N/A")
-                            })
+                            # Si se ha indicado un token, se filtra también por símbolo
+                            if token_filter is None or token_filter in pool.get("symbol", "").upper():
+                                alternatives.append({
+                                    "symbol": pool.get("symbol", ""),
+                                    "project": pool.get("project", ""),
+                                    "chain": pool.get("chain", ""),
+                                    "apy": pool.get("apy", 0),
+                                    "tvlUsd": pool.get("tvlUsd", 0),
+                                    "pool": pool.get("pool", "N/A")
+                                })
                     alternatives.sort(key=lambda x: x.get("apy", 0), reverse=True)
                     alternatives = alternatives[:3]
                     # Guardar en session_state para posibles solicitudes de gráfico
                     st.session_state["last_alternatives"] = alternatives
                     if alternatives:
-                        response_text = "He encontrado las siguientes oportunidades filtradas por chain:\n\n"
+                        if token_filter:
+                            response_text = f"He encontrado las siguientes oportunidades para token {token_filter} en la chain {chain_filter}:\n\n"
+                        else:
+                            response_text = f"He encontrado las siguientes oportunidades filtradas por chain {chain_filter}:\n\n"
                         for alt in alternatives:
                             response_text += (
                                 f"• {alt['project']} en {alt['chain']}, token {alt['symbol']}, "
@@ -88,9 +99,12 @@ def render_opportunities_chat():
                             )
                         ai_response = response_text
                     else:
-                        ai_response = f"No se encontraron oportunidades para chain: {chain_filter}"
+                        if token_filter:
+                            ai_response = f"No se encontraron oportunidades para token {token_filter} en la chain: {chain_filter}"
+                        else:
+                            ai_response = f"No se encontraron oportunidades para chain: {chain_filter}"
 
-                # Si se solicita gráfico y se determina el pool id, mostrar el gráfico
+                # Si se solicita gráfico y se determinó el pool id, se muestra el gráfico
                 if show_graph and pool_id_requested:
                     chart_url = f"https://yields.llama.fi/chart/{pool_id_requested}"
                     try:
@@ -119,7 +133,7 @@ def render_opportunities_chat():
                 st.chat_message("assistant").write(ai_response)
                 return
 
-            # Procesamos las alternativas basadas en el token
+            # Caso: procesar alternativas basadas en token (sin chain)
             token = None
             token_match = re.search(r"alternativas\s+para\s+(\w+)", user_input, re.IGNORECASE)
             if token_match:
