@@ -11,6 +11,16 @@ from utils import (
     get_openai_api_key
 )
 
+def parse_timestamp(ts):
+    try:
+        # Intenta convertir timestamp si es numérico
+        if isinstance(ts, (int, float)):
+            return pd.to_datetime(ts, unit='s')
+        # Si es string, parsea directamente
+        return pd.to_datetime(ts)
+    except:
+        return None
+        
 def render_opportunities_chat():
     st.set_page_config(page_title="Oportunidades DeFi - Chat", layout="wide")
     st.title("Chat de Oportunidades DeFi")
@@ -100,16 +110,33 @@ def render_opportunities_chat():
                             chart_data = chart_response.json()
                             if chart_data.get("status") == "success" and chart_data.get("data"):
                                 df_chart = pd.DataFrame(chart_data["data"])
-                                df_chart["timestamp"] = pd.to_datetime(df_chart["timestamp"], unit="s")
-                                fig = px.line(
-                                    df_chart,
-                                    x="timestamp",
-                                    y="apy",
-                                    title=f"Evolución del APY para {alternatives[0]['project']} - {alternatives[0]['symbol']}",
-                                    labels={"timestamp": "Fecha", "apy": "APY (%)"}
-                                )
-                                st.plotly_chart(fig, use_container_width=True)
-                                response_text += "\nArriba puedes ver el gráfico de la primera opción."
+                                # Convertir timestamp usando la función personalizada
+                                df_chart["timestamp"] = df_chart["timestamp"].apply(parse_timestamp)
+                                # Eliminar filas con timestamp nulo
+                                df_chart = df_chart.dropna(subset=["timestamp"])
+                        
+                                if not df_chart.empty:
+                                    fig = px.line(
+                                        df_chart,
+                                        x="timestamp",
+                                        y="apy",
+                                        title=f"Evolución del APY para {alternatives[0]['project']} - {alternatives[0]['symbol']}",
+                                        labels={"timestamp": "Fecha", "apy": "APY (%)"}
+                                    )
+                                    # Configurar formato de fecha en el eje x
+                                    fig.update_xaxes(
+                                        tickformat="%Y-%m-%d",
+                                        tickangle=45
+                                    )
+                                    # Mejorar el formato del eje y (APY)
+                                    fig.update_yaxes(
+                                        tickformat=".2f",
+                                        title_text="APY (%)"
+                                    )
+                                    st.plotly_chart(fig, use_container_width=True)
+                                    response_text += "\nArriba puedes ver el gráfico de la primera opción."
+                                else:
+                                    response_text += "\nNo hay suficientes datos para mostrar el gráfico."
                     except Exception as e:
                         response_text += f"\nError al cargar el gráfico: {e}"
 
