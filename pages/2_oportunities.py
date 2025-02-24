@@ -70,14 +70,26 @@ def render_opportunities_chat():
             if "error" in llama_data:
                 ai_response = "Error al obtener datos de DeFi Llama."
             else:
+                # Inicializar filtros
+                chain_filter = "arbitrum"  # Por defecto, buscamos en arbitrum
+                token_filter = "BTC"       # Por defecto, buscamos BTC
+                min_tvl = 50000            # TVL mínimo especificado en la consulta
+                min_apy = 0                # APY mínimo (por defecto 0, sin filtro)
+            
+                # Detectar si el usuario especifica un APY mínimo en la consulta
+                apy_match = re.search(r"apy\s*[>]\s*(\d+(?:\.\d+)?)", user_input.lower())
+                if apy_match:
+                    min_apy = float(apy_match.group(1))  # Extraer el valor de APY mínimo
+            
+                # Filtrar datos de DeFi Llama
                 alternatives = []
                 for pool in llama_data.get("data", []):
-                    # Aplicar todos los filtros
+                    # Aplicar filtros: chain, token, TVL y APY
                     if (
-                        (not chain_filter or chain_filter in pool.get("chain", "").lower()) and
-                        (not token_filter or token_filter in pool.get("symbol", "").upper()) and
-                        pool.get("apy", 0) >= min_apy and
-                        pool.get("tvlUsd", 0) >= min_tvl
+                        chain_filter in pool.get("chain", "").lower() and  # Filtrar por chain
+                        token_filter in pool.get("symbol", "").upper() and  # Filtrar por token
+                        pool.get("tvlUsd", 0) > min_tvl and                # Filtrar por TVL
+                        pool.get("apy", 0) >= min_apy                      # Filtrar por APY
                     ):
                         alternatives.append({
                             "symbol": pool.get("symbol", ""),
@@ -87,11 +99,15 @@ def render_opportunities_chat():
                             "tvlUsd": pool.get("tvlUsd", 0),
                             "pool": pool.get("pool", "N/A")
                         })
-
+            
+                # Ordenar por APY en orden descendente y limitar a 3 resultados
                 alternatives.sort(key=lambda x: x.get("apy", 0), reverse=True)
                 alternatives = alternatives[:3]
+            
+                # Guardar en session_state para posibles gráficos
                 st.session_state["last_alternatives"] = alternatives
-
+            
+                # Generar respuesta
                 if alternatives:
                     response_text = "He encontrado las siguientes oportunidades:\n\n"
                     for alt in alternatives:
@@ -100,46 +116,6 @@ def render_opportunities_chat():
                             f"APY: {alt['apy']:.2f}% - TVL: ${format_number(alt['tvlUsd'])} "
                             f"(Pool ID: {alt['pool']})\n\n"
                         )
-
-                    # Mostrar gráfico de la primera opción automáticamente
-                    first_pool_id = alternatives[0]["pool"]
-                    chart_url = f"https://yields.llama.fi/chart/{first_pool_id}"
-                    try:
-                        chart_response = requests.get(chart_url, headers={"accept": "*/*"})
-                        if chart_response.status_code == 200:
-                            chart_data = chart_response.json()
-                            if chart_data.get("status") == "success" and chart_data.get("data"):
-                                df_chart = pd.DataFrame(chart_data["data"])
-                                # Convertir timestamp usando la función personalizada
-                                df_chart["timestamp"] = df_chart["timestamp"].apply(parse_timestamp)
-                                # Eliminar filas con timestamp nulo
-                                df_chart = df_chart.dropna(subset=["timestamp"])
-                        
-                                if not df_chart.empty:
-                                    fig = px.line(
-                                        df_chart,
-                                        x="timestamp",
-                                        y="apy",
-                                        title=f"Evolución del APY para {alternatives[0]['project']} - {alternatives[0]['symbol']}",
-                                        labels={"timestamp": "Fecha", "apy": "APY (%)"}
-                                    )
-                                    # Configurar formato de fecha en el eje x
-                                    fig.update_xaxes(
-                                        tickformat="%Y-%m-%d",
-                                        tickangle=45
-                                    )
-                                    # Mejorar el formato del eje y (APY)
-                                    fig.update_yaxes(
-                                        tickformat=".2f",
-                                        title_text="APY (%)"
-                                    )
-                                    st.plotly_chart(fig, use_container_width=True)
-                                    response_text += "\nArriba puedes ver el gráfico de la primera opción."
-                                else:
-                                    response_text += "\nNo hay suficientes datos para mostrar el gráfico."
-                    except Exception as e:
-                        response_text += f"\nError al cargar el gráfico: {e}"
-
                     ai_response = response_text
                 else:
                     ai_response = "No se encontraron oportunidades que cumplan con los filtros especificados."
