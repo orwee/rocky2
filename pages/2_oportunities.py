@@ -116,6 +116,47 @@ def render_opportunities_chat():
                             f"APY: {alt['apy']:.2f}% - TVL: ${format_number(alt['tvlUsd'])} "
                             f"(Pool ID: {alt['pool']})\n\n"
                         )
+            
+                    # Mostrar gráfico de la primera alternativa automáticamente
+                    first_pool_id = alternatives[0]["pool"]
+                    chart_url = f"https://yields.llama.fi/chart/{first_pool_id}"
+                    try:
+                        chart_response = requests.get(chart_url, headers={"accept": "*/*"})
+                        if chart_response.status_code == 200:
+                            chart_data = chart_response.json()
+                            if chart_data.get("status") == "success" and chart_data.get("data"):
+                                df_chart = pd.DataFrame(chart_data["data"])
+                                # Convertir timestamp a formato datetime
+                                df_chart["timestamp"] = pd.to_datetime(df_chart["timestamp"], errors="coerce")
+                                df_chart = df_chart.dropna(subset=["timestamp"])  # Eliminar valores no convertibles
+            
+                                if not df_chart.empty:
+                                    fig = px.line(
+                                        df_chart,
+                                        x="timestamp",
+                                        y="apy",
+                                        title=f"Evolución del APY para {alternatives[0]['project']} - {alternatives[0]['symbol']}",
+                                        labels={"timestamp": "Fecha", "apy": "APY (%)"}
+                                    )
+                                    # Configurar formato de fecha en el eje x
+                                    fig.update_xaxes(
+                                        tickformat="%Y-%m-%d",
+                                        tickangle=45
+                                    )
+                                    # Mejorar el formato del eje y (APY)
+                                    fig.update_yaxes(
+                                        tickformat=".2f",
+                                        title_text="APY (%)"
+                                    )
+                                    st.plotly_chart(fig, use_container_width=True)
+                                    response_text += "\nArriba puedes ver el gráfico de la primera opción."
+                                else:
+                                    response_text += "\nNo hay suficientes datos para mostrar el gráfico."
+                        else:
+                            response_text += "\nError al obtener el gráfico desde DeFi Llama."
+                    except Exception as e:
+                        response_text += f"\nError al cargar el gráfico: {e}"
+            
                     ai_response = response_text
                 else:
                     ai_response = "No se encontraron oportunidades que cumplan con los filtros especificados."
