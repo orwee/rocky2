@@ -31,7 +31,9 @@ if 'portfolio' not in st.session_state:
             "protocol": "Struct Finance",
             "type": "Yield",
             "token": "USDC",
-            "value": 288.083017
+            "value": 288.083017,
+            "apy": 5.2,  # APY inicial para la posición 0
+            "tvl": 500000  # TVL inicial para la posición 0
         },
         {
             "num_posicion": 1,
@@ -40,7 +42,9 @@ if 'portfolio' not in st.session_state:
             "protocol": "Pendle V2",
             "type": "Liquidity Pool",
             "token": "cmETH/PT-cmETH",
-            "value": 318.715554
+            "value": 318.715554,
+            "apy": 8.7,  # APY inicial para la posición 1
+            "tvl": 750000  # TVL inicial para la posición 1
         }
     ]
 
@@ -52,8 +56,8 @@ if 'context' not in st.session_state:
         'protocol': None,
         'token': None,
         'type': None,
-        'min_apy': None,
-        'min_tvl': None,
+        'min_apy': 0.0,  # Valor inicial para APY
+        'min_tvl': 0.0,  # Valor inicial para TVL
         'filters': [],
         'query_history': []
     }
@@ -233,6 +237,8 @@ def process_user_query(query):
             st.session_state.context['protocol'] = position['protocol']
             st.session_state.context['token'] = position['token']
             st.session_state.context['type'] = position['type']
+            st.session_state.context['min_apy'] = position['apy']  # Establecer APY inicial
+            st.session_state.context['min_tvl'] = position['tvl']  # Establecer TVL inicial
             context_updated = True
 
             # Mensaje sobre la posición seleccionada
@@ -263,8 +269,8 @@ def process_user_query(query):
         else:
             # Buscar en la posición seleccionada o usar valor predeterminado
             if st.session_state.context['position'] is not None:
-                # Aquí podríamos buscar el APY actual de la posición si estuviera disponible
-                st.session_state.context['min_apy'] = 3.0  # Valor predeterminado bajo para encontrar resultados
+                pos = st.session_state.context['position']
+                st.session_state.context['min_apy'] = st.session_state.portfolio[pos]['apy']
             else:
                 st.session_state.context['min_apy'] = 3.0
         context_updated = True
@@ -276,8 +282,12 @@ def process_user_query(query):
             current_tvl = max([alt['tvlUsd'] for alt in st.session_state.alternatives[:3]])
             st.session_state.context['min_tvl'] = current_tvl
         else:
-            # Valor predeterminado
-            st.session_state.context['min_tvl'] = 50000  # $50K
+            # Valor de la posición seleccionada o predeterminado
+            if st.session_state.context['position'] is not None:
+                pos = st.session_state.context['position']
+                st.session_state.context['min_tvl'] = st.session_state.portfolio[pos]['tvl']
+            else:
+                st.session_state.context['min_tvl'] = 50000  # $50K
         context_updated = True
 
     # Si el contexto se actualizó o no hay alternativas, consultar la API
@@ -330,6 +340,22 @@ def process_user_query(query):
 
                 st.session_state.messages.append({"role": "assistant", "content": diagnostic_msg})
 
+# Función para actualizar el contexto cuando se modifican los valores de APY o TVL
+def update_context_from_ui():
+    if st.session_state.min_apy_input != st.session_state.context['min_apy']:
+        st.session_state.context['min_apy'] = st.session_state.min_apy_input
+        # Añadir al historial de consultas
+        st.session_state.context['query_history'].append(f"APY mínimo ajustado a {st.session_state.min_apy_input}%")
+        return True
+
+    if st.session_state.min_tvl_input != st.session_state.context['min_tvl']:
+        st.session_state.context['min_tvl'] = st.session_state.min_tvl_input
+        # Añadir al historial de consultas
+        st.session_state.context['query_history'].append(f"TVL mínimo ajustado a ${st.session_state.min_tvl_input:,.2f}")
+        return True
+
+    return False
+
 # Diseño de la interfaz de usuario
 st.title("🚀 Explorador de Alternativas DeFi")
 
@@ -341,8 +367,10 @@ with col1:
     st.subheader("📊 Mi Portafolio")
     # Crear DataFrame para mostrar el portafolio
     portfolio_df = pd.DataFrame(st.session_state.portfolio)
-    # Formateamos el valor para mejor visualización
+    # Formateamos valores para mejor visualización
     portfolio_df['value'] = portfolio_df['value'].apply(lambda x: f"${x:,.2f}")
+    portfolio_df['apy'] = portfolio_df['apy'].apply(lambda x: f"{x:.2f}%")
+    portfolio_df['tvl'] = portfolio_df['tvl'].apply(lambda x: f"${x:,.2f}")
     st.dataframe(portfolio_df, hide_index=True)
 
     st.subheader("🔍 Contexto Actual")
@@ -362,6 +390,48 @@ with col1:
         """)
     else:
         st.info("Aún no has seleccionado ninguna posición de tu portafolio.")
+
+    # NUEVOS CONTROLES INTERACTIVOS PARA APY Y TVL
+    st.subheader("🔄 Variables Interactivas")
+
+    # Inicializar valores para los campos de entrada
+    if 'min_apy_input' not in st.session_state:
+        st.session_state.min_apy_input = st.session_state.context['min_apy'] or 0.0
+
+    if 'min_tvl_input' not in st.session_state:
+        st.session_state.min_tvl_input = st.session_state.context['min_tvl'] or 0.0
+
+    # Slider para APY
+    st.markdown("**APY Mínimo (%)**")
+    min_apy_slider = st.slider(
+        "APY Min",
+        min_value=0.0,
+        max_value=50.0,
+        value=st.session_state.min_apy_input,
+        step=0.5,
+        key="min_apy_input",
+        help="Define el APY mínimo para las alternativas de inversión"
+    )
+
+    # Entrada numérica para TVL
+    st.markdown("**TVL Mínimo (USD)**")
+    min_tvl_input = st.number_input(
+        "TVL Min",
+        min_value=0,
+        max_value=100000000,
+        value=int(st.session_state.min_tvl_input),
+        step=10000,
+        key="min_tvl_input",
+        help="Define el TVL mínimo para las alternativas de inversión"
+    )
+
+    # Botón para aplicar cambios
+    if st.button("Aplicar Filtros"):
+        context_updated = update_context_from_ui()
+        if context_updated:
+            st.success("Contexto actualizado. Buscando nuevas alternativas...")
+            # Recargar para actualizar resultados
+            st.rerun()
 
     # Mostrar filtros aplicados
     st.subheader("🏷️ Filtros Aplicados")
@@ -401,6 +471,20 @@ with col2:
             else:
                 st.markdown(f"**Asistente:** {message['content']}")
 
+    # Variables contextuales actuales (NUEVA SECCIÓN)
+    st.subheader("📊 Variables Contextuales Actuales")
+    context_metrics = {
+        "APY Mínimo": f"{st.session_state.context['min_apy']:.2f}%",
+        "TVL Mínimo": f"${st.session_state.context['min_tvl']:,.2f}",
+        "Blockchain": st.session_state.context['chain'] or "No especificada",
+        "Token": st.session_state.context['token'] or "No especificado"
+    }
+
+    # Mostrar métricas en columnas
+    metric_cols = st.columns(len(context_metrics))
+    for i, (label, value) in enumerate(context_metrics.items()):
+        metric_cols[i].metric(label=label, value=value)
+
     # Alternativas de inversión
     st.subheader("💰 Alternativas de Inversión")
     if st.session_state.alternatives:
@@ -421,7 +505,7 @@ with col2:
         alt_df = pd.DataFrame(display_data)
         st.dataframe(alt_df, hide_index=True)
     else:
-        st.info("Aún no hay alternativas para mostrar. Haz una consulta en el chat.")
+        st.info("Aún no hay alternativas para mostrar. Haz una consulta en el chat o ajusta los filtros.")
 
     # Formulario para consultas del usuario
     with st.form(key="query_form"):
@@ -437,7 +521,3 @@ with col2:
 
             # Recargar para actualizar la UI
             st.rerun()
-
-# Información para depuración (opcional, se puede quitar en producción)
-with st.expander("Ver Estado del Contexto (Debug)"):
-    st.json(st.session_state.context)
