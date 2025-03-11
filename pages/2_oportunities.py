@@ -25,7 +25,7 @@ def get_defi_llama_yields():
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = [ 
         {
-            "num_posicion": 1,
+            "num_posicion": 0,
             "wallet": "Wallet #1",
             "blockchain": "mnt",
             "protocol": "Pendle V2",
@@ -34,7 +34,7 @@ if 'portfolio' not in st.session_state:
             "value": 318.715554
         },
         {
-            "num_posicion": 0,
+            "num_posicion": 1,
             "wallet": "Wallet #1",
             "blockchain": "avax",
             "protocol": "Struct Finance",
