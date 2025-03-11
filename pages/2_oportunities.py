@@ -34,13 +34,31 @@ if 'portfolio' not in st.session_state:
             "value": 288.083017
         },
         {
-            "num_posicion": 1,
+            "num_posicion": 2,
             "wallet": "Wallet #1",
             "blockchain": "mnt",
             "protocol": "Pendle V2",
             "type": "Liquidity Pool",
             "token": "cmETH/PT-cmETH",
             "value": 318.715554
+        },
+        {
+            "num_posicion": 1,
+            "wallet": "Wallet #1",
+            "blockchain": "avax",
+            "protocol": "Struct Finance",
+            "type": "Yield",
+            "token": "USDC",
+            "value": 288.083017
+        },
+        {
+            "num_posicion": 0,
+            "wallet": "Wallet #2",
+            "blockchain": "bsc",
+            "protocol": "PancakeSwap V3",
+            "type": "Liquidity Pool",
+            "token": "ETH/BETH",
+            "value": 453.397698
         }
     ]
 
