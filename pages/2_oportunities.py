@@ -1,4 +1,4 @@
-import streamlit as st
+oimport streamlit as st
 import pandas as pd
 import requests
 import json
@@ -23,8 +23,7 @@ def get_defi_llama_yields():
 
 # Inicialización del portafolio en session_state
 if 'portfolio' not in st.session_state:
-    st.session_state.portfolio = [
-        
+    st.session_state.portfolio = [ 
         {
             "num_posicion": 1,
             "wallet": "Wallet #1",
