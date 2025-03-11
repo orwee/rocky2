@@ -24,15 +24,7 @@ def get_defi_llama_yields():
 # Inicialización del portafolio en session_state
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = [
-        {
-            "num_posicion": 0,
-            "wallet": "Wallet #1",
-            "blockchain": "avax",
-            "protocol": "Struct Finance",
-            "type": "Yield",
-            "token": "USDC",
-            "value": 288.083017
-        },
+        
         {
             "num_posicion": 2,
             "wallet": "Wallet #1",
